@@ -1,7 +1,10 @@
 import chromadb
 from chromadb.config import Settings
 from openai import OpenAI
-
+import tiktoken
+import torch
+import torch.nn.functional as F
+from transformers import AutoTokenizer, AutoModel
 
 class FinancialSituationMemory:
     def __init__(self, name, config):
@@ -13,9 +16,74 @@ class FinancialSituationMemory:
         self.chroma_client = chromadb.Client(Settings(allow_reset=True))
         self.situation_collection = self.chroma_client.create_collection(name=name)
 
+    def truncate_text_by_tokens(self, text: str, max_tokens: int) -> str:
+        """
+        https://share.google/aimode/L9TZBAL38BSQ2N7bF
+        Truncates a string to have at most `max_tokens` according to the specified encoding.
+
+        Args:
+            text: The original string to truncate.
+            model_encoding: The name of the tiktoken encoding (e.g., 'cl100k_base', 'p50k_base').
+            max_tokens: The maximum number of tokens allowed.
+
+        Returns:
+            The truncated string.
+        """
+        try:
+            # Get the appropriate encoding
+            # https://share.google/aimode/wlxGmTvtWu6rYKYsr
+            encoding = tiktoken.get_encoding("cl100k_base")
+        except KeyError:
+            # Fallback if encoding name isn't found directly (e.g., model name provided)
+            encoding = tiktoken.encoding_for_model(self.embedding)
+
+        # Encode the text into a list of tokens (integers)
+        tokens = encoding.encode(text)
+
+        # Slice the list of tokens to the maximum allowed length
+        truncated_tokens = tokens[:max_tokens]
+
+        # Decode the truncated list of tokens back into a string
+        truncated_text = encoding.decode(truncated_tokens)
+
+        return truncated_text
+
+    def get_embedding_impl_nomic(self, text):
+        # The hf nomic-embed-text model supports 8192 context length
+        # https://github.com/ollama/ollama/issues/7741#issuecomment-2485808342
+        # So git clone the nomic-ai/nomic-embed-text-v1.5 model and load it instead of using ollama
+        def mean_pooling(model_output, attention_mask):
+            token_embeddings = model_output[0]
+            input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+            return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+        
+        tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+        model = AutoModel.from_pretrained('nomic-ai/nomic-embed-text-v1.5', trust_remote_code=True, safe_serialization=True)
+        model.eval()
+
+        encoded_input = tokenizer(text, padding=True, truncation=True, return_tensors='pt')
+
+        matryoshka_dim = 512
+
+        with torch.no_grad():
+            model_output = model(**encoded_input)
+
+        embeddings = mean_pooling(model_output, encoded_input['attention_mask'])
+        embeddings = F.layer_norm(embeddings, normalized_shape=(embeddings.shape[1],))
+        embeddings = embeddings[:, :matryoshka_dim]
+        embeddings = F.normalize(embeddings, p=2, dim=1)
+        return embeddings[0].tolist()
+
     def get_embedding(self, text):
         """Get OpenAI embedding for a text"""
         
+        # https://platform.openai.com/docs/api-reference/embeddings
+        # There is a max token length limit
+        text = self.truncate_text_by_tokens(text=text, max_tokens=1)
+
+        if self.embedding == "nomic-embed-text":
+            return self.get_embedding_impl_nomic(text)
+
         response = self.client.embeddings.create(
             model=self.embedding, input=text
         )

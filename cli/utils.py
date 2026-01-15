@@ -152,6 +152,7 @@ def select_shallow_thinking_agent(provider) -> str:
         "ollama": [
             ("llama3.1 local", "llama3.1"),
             ("llama3.2 local", "llama3.2"),
+            ("gpt-oss:20b local", "gpt-oss:20b"),
         ]
     }
 
@@ -214,6 +215,7 @@ def select_deep_thinking_agent(provider) -> str:
         "ollama": [
             ("llama3.1 local", "llama3.1"),
             ("qwen3", "qwen3"),
+            ("gpt-oss:20b local", "gpt-oss:20b"),
         ]
     }
     
