@@ -259,29 +259,56 @@ class TradingAgentsGraph:
             json.dump(self.log_states_dict, f, indent=4)
 
     def _save_state(self, trade_date, final_state):
-        def _save_file(self, trade_date, filename, content):
+        def _save_file(ticker, trade_date, filename, content):
             # Save to file
-            directory = Path(f"results/{self.ticker}/{trade_date}/")
+            directory = Path(f"results/{ticker}/{trade_date}/")
             directory.mkdir(parents=True, exist_ok=True)
 
             file_name = f"{filename}.md"
             with open(directory / file_name, "w") as f:
                 f.write(content)
 
-        _save_file(trade_date, "market_report", final_state["market_report"])
-        _save_file(trade_date, "sentiment_report", final_state["sentiment_report"])
-        _save_file(trade_date, "news_report", final_state["news_report"])
         _save_file(
-            trade_date, "fundamentals_report", final_state["fundamentals_report"]
+            ticker=self.ticker,
+            trade_date=trade_date,
+            filename="market_report",
+            content=final_state["market_report"],
         )
         _save_file(
-            trade_date,
-            "trader_investment_decision",
-            final_state["trader_investment_plan"],
+            ticker=self.ticker,
+            trade_date=trade_date,
+            filename="sentiment_report",
+            content=final_state["sentiment_report"],
         )
-        _save_file(trade_date, "investment_plan", final_state["investment_plan"])
         _save_file(
-            trade_date, "final_trade_decision", final_state["final_trade_decision"]
+            ticker=self.ticker,
+            trade_date=trade_date,
+            filename="news_report",
+            content=final_state["news_report"],
+        )
+        _save_file(
+            ticker=self.ticker,
+            trade_date=trade_date,
+            filename="fundamentals_report",
+            content=final_state["fundamentals_report"],
+        )
+        _save_file(
+            ticker=self.ticker,
+            trade_date=trade_date,
+            filename="trader_investment_decision",
+            content=final_state["trader_investment_plan"],
+        )
+        _save_file(
+            ticker=self.ticker,
+            trade_date=trade_date,
+            filename="investment_plan",
+            content=final_state["investment_plan"],
+        )
+        _save_file(
+            ticker=self.ticker,
+            trade_date=trade_date,
+            filename="final_trade_decision",
+            content=final_state["final_trade_decision"],
         )
 
     def reflect_and_remember(self, returns_losses):

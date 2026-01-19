@@ -114,9 +114,9 @@ VENDOR_METHODS = {
         "local": [get_finnhub_news, get_reddit_company_news, get_google_news],
     },
     "get_global_news": {
+        "ollama": get_global_news_ollama,
         "openai": get_global_news_openai,
         "local": get_reddit_global_news,
-        "alpha_vantage": get_global_news_ollama,
     },
     "get_insider_sentiment": {"local": get_finnhub_company_insider_sentiment},
     "get_insider_transactions": {
