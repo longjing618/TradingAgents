@@ -1,7 +1,9 @@
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-import time
 import json
-from tradingagents.agents.utils.agent_utils import get_stock_data, get_indicators
+import time
+
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+
+from tradingagents.agents.utils.agent_utils import get_indicators, get_stock_data
 from tradingagents.dataflows.config import get_config
 
 
@@ -71,12 +73,12 @@ Volume-Based Indicators:
         chain = prompt | llm.bind_tools(tools)
 
         result = chain.invoke(state["messages"])
-
         report = ""
 
         if len(result.tool_calls) == 0:
+            print(result)
             report = result.content
-       
+
         return {
             "messages": [result],
             "market_report": report,
