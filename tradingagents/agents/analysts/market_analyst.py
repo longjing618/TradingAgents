@@ -78,6 +78,8 @@ Volume-Based Indicators:
         if len(result.tool_calls) == 0:
             print(result)
             report = result.content
+            if len(report) == 0:
+                raise ValueError("Empty response received")
 
         return {
             "messages": [result],
