@@ -22,6 +22,7 @@ from .alpha_vantage import (
     get_news as get_alpha_vantage_news,
     get_global_news as get_alpha_vantage_global_news,
 )
+from .ollama import get_global_news_ollama
 from .alpha_vantage_common import AlphaVantageRateLimitError
 
 # Configuration and routing logic
@@ -31,15 +32,11 @@ from .config import get_config
 TOOLS_CATEGORIES = {
     "core_stock_apis": {
         "description": "OHLCV stock price data",
-        "tools": [
-            "get_stock_data"
-        ]
+        "tools": ["get_stock_data"],
     },
     "technical_indicators": {
         "description": "Technical analysis indicators",
-        "tools": [
-            "get_indicators"
-        ]
+        "tools": ["get_indicators"],
     },
     "fundamental_data": {
         "description": "Company fundamentals",
@@ -47,8 +44,8 @@ TOOLS_CATEGORIES = {
             "get_fundamentals",
             "get_balance_sheet",
             "get_cashflow",
-            "get_income_statement"
-        ]
+            "get_income_statement",
+        ],
     },
     "news_data": {
         "description": "News and insider data",
@@ -56,8 +53,8 @@ TOOLS_CATEGORIES = {
             "get_news",
             "get_global_news",
             "get_insider_transactions",
-        ]
-    }
+        ],
+    },
 }
 
 VENDOR_LIST = [
@@ -100,6 +97,7 @@ VENDOR_METHODS = {
         "yfinance": get_news_yfinance,
     },
     "get_global_news": {
+        "ollama": get_global_news_ollama,
         "yfinance": get_global_news_yfinance,
         "alpha_vantage": get_alpha_vantage_global_news,
     },
@@ -109,12 +107,14 @@ VENDOR_METHODS = {
     },
 }
 
+
 def get_category_for_method(method: str) -> str:
     """Get the category that contains the specified method."""
     for category, info in TOOLS_CATEGORIES.items():
         if method in info["tools"]:
             return category
     raise ValueError(f"Method '{method}' not found in any category")
+
 
 def get_vendor(category: str, method: str = None) -> str:
     """Get the configured vendor for a data category or specific tool method.
@@ -131,11 +131,12 @@ def get_vendor(category: str, method: str = None) -> str:
     # Fall back to category-level configuration
     return config.get("data_vendors", {}).get(category, "default")
 
+
 def route_to_vendor(method: str, *args, **kwargs):
     """Route method calls to appropriate vendor implementation with fallback support."""
     category = get_category_for_method(method)
     vendor_config = get_vendor(category, method)
-    primary_vendors = [v.strip() for v in vendor_config.split(',')]
+    primary_vendors = [v.strip() for v in vendor_config.split(",")]
 
     if method not in VENDOR_METHODS:
         raise ValueError(f"Method '{method}' not supported")
