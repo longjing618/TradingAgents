@@ -44,7 +44,6 @@ class OpenAIClient(BaseLLMClient):
     def get_llm(self) -> Any:
         """Return configured ChatOpenAI instance."""
         llm_kwargs = {"model": self.model}
-
         if self.provider == "xai":
             llm_kwargs["base_url"] = "https://api.x.ai/v1"
             api_key = os.environ.get("XAI_API_KEY")
@@ -56,12 +55,21 @@ class OpenAIClient(BaseLLMClient):
             if api_key:
                 llm_kwargs["api_key"] = api_key
         elif self.provider == "ollama":
-            llm_kwargs["base_url"] = "http://localhost:11434/v1"
-            llm_kwargs["api_key"] = "ollama"  # Ollama doesn't require auth
+            # llm_kwargs["base_url"] = "http://localhost:11434/v1"
+            # llm_kwargs["api_key"] = "ollama"  # Ollama doesn't require auth
+            # https://www.reddit.com/r/ollama/comments/1rmew6s/direct_cloud_access/
+            llm_kwargs["base_url"] = "https://ollama.com/v1"
+            llm_kwargs["api_key"] = os.environ.get("OLLAMA_API_KEY")
         elif self.base_url:
             llm_kwargs["base_url"] = self.base_url
 
-        for key in ("timeout", "max_retries", "reasoning_effort", "api_key", "callbacks"):
+        for key in (
+            "timeout",
+            "max_retries",
+            "reasoning_effort",
+            "api_key",
+            "callbacks",
+        ):
             if key in self.kwargs:
                 llm_kwargs[key] = self.kwargs[key]
 
