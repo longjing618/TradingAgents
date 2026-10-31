@@ -18,7 +18,11 @@ def _as_utc(dt: datetime) -> datetime:
     timestamps may be offset-aware, so every operand is normalized before
     comparison. Without this the filter depends on the host timezone (#1126).
     """
-    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
+    return (
+        dt.replace(tzinfo=timezone.utc)
+        if dt.tzinfo is None
+        else dt.astimezone(timezone.utc)
+    )
 
 
 def _extract_article_data(article: dict) -> dict:
@@ -174,11 +178,13 @@ def get_global_news_yfinance(
 
     try:
         for query in search_queries:
-            search = yf_retry(lambda q=query: yf.Search(
-                query=q,
-                news_count=limit,
-                enable_fuzzy_query=True,
-            ))
+            search = yf_retry(
+                lambda q=query: yf.Search(
+                    query=q,
+                    news_count=limit,
+                    enable_fuzzy_query=True,
+                )
+            )
 
             if search.news:
                 for article in search.news:

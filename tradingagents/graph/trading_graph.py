@@ -52,7 +52,9 @@ def _coerce_max_retries(value):
     than silently disabling retries.
     """
     if isinstance(value, bool):
-        raise ValueError(f"llm_max_retries must be an integer, not a boolean: {value!r}")
+        raise ValueError(
+            f"llm_max_retries must be an integer, not a boolean: {value!r}"
+        )
     try:
         n = int(value)
     except (TypeError, ValueError) as exc:
@@ -249,7 +251,10 @@ class TradingAgentsGraph:
         return benchmark_map.get("", "SPY")
 
     def _fetch_returns(
-        self, ticker: str, trade_date: str, holding_days: int = 5,
+        self,
+        ticker: str,
+        trade_date: str,
+        holding_days: int = 5,
         benchmark: str = "SPY",
     ) -> tuple[float | None, float | None, int | None]:
         """Fetch raw and alpha return for ticker over holding_days from trade_date.
@@ -263,13 +268,17 @@ class TradingAgentsGraph:
 
         try:
             start = datetime.strptime(trade_date, "%Y-%m-%d")
-            end = start + timedelta(days=holding_days + 7)  # buffer for weekends/holidays
+            end = start + timedelta(
+                days=holding_days + 7
+            )  # buffer for weekends/holidays
             end_str = end.strftime("%Y-%m-%d")
 
             # Normalize so the realized-return lookup hits the same instrument
             # the analysis priced (e.g. XAUUSD -> GC=F) (#984). The benchmark is
             # already a canonical Yahoo symbol from ``_resolve_benchmark``.
-            stock = yf.Ticker(normalize_symbol(ticker)).history(start=trade_date, end=end_str)
+            stock = yf.Ticker(normalize_symbol(ticker)).history(
+                start=trade_date, end=end_str
+            )
             bench = yf.Ticker(benchmark).history(start=trade_date, end=end_str)
 
             if len(stock) < 2 or len(bench) < 2:
@@ -289,7 +298,10 @@ class TradingAgentsGraph:
         except Exception as e:
             logger.warning(
                 "Could not resolve outcome for %s on %s vs %s (will retry next run): %s",
-                ticker, trade_date, benchmark, e,
+                ticker,
+                trade_date,
+                benchmark,
+                e,
             )
             return None, None, None
 
@@ -303,7 +315,9 @@ class TradingAgentsGraph:
         Trade-off: only same-ticker entries are resolved per run.  Entries for
         other tickers accumulate until that ticker is run again.
         """
-        pending = [e for e in self.memory_log.get_pending_entries() if e["ticker"] == ticker]
+        pending = [
+            e for e in self.memory_log.get_pending_entries() if e["ticker"] == ticker
+        ]
         if not pending:
             return
 
@@ -311,7 +325,9 @@ class TradingAgentsGraph:
         updates = []
         for entry in pending:
             raw, alpha, days = self._fetch_returns(
-                ticker, entry["date"], benchmark=benchmark,
+                ticker,
+                entry["date"],
+                benchmark=benchmark,
             )
             if raw is None:
                 continue  # price not available yet — try again next run
@@ -321,14 +337,16 @@ class TradingAgentsGraph:
                 alpha_return=alpha,
                 benchmark_name=benchmark,
             )
-            updates.append({
-                "ticker": ticker,
-                "trade_date": entry["date"],
-                "raw_return": raw,
-                "alpha_return": alpha,
-                "holding_days": days,
-                "reflection": reflection,
-            })
+            updates.append(
+                {
+                    "ticker": ticker,
+                    "trade_date": entry["date"],
+                    "raw_return": raw,
+                    "alpha_return": alpha,
+                    "holding_days": days,
+                    "reflection": reflection,
+                }
+            )
 
         if updates:
             self.memory_log.batch_update_with_outcomes(updates)
@@ -352,12 +370,14 @@ class TradingAgentsGraph:
         selection, debate/risk depth, or asset mode starts fresh instead of
         silently continuing the previous graph (#1089).
         """
-        return "|".join([
-            "analysts=" + ",".join(self.selected_analysts),
-            f"debate={self.config['max_debate_rounds']}",
-            f"risk={self.config['max_risk_discuss_rounds']}",
-            f"asset={asset_type}",
-        ])
+        return "|".join(
+            [
+                "analysts=" + ",".join(self.selected_analysts),
+                f"debate={self.config['max_debate_rounds']}",
+                f"risk={self.config['max_risk_discuss_rounds']}",
+                f"asset={asset_type}",
+            ]
+        )
 
     def propagate(self, company_name, trade_date, asset_type: str = "stock"):
         """Run the trading agents graph for a company on a specific date.
@@ -383,7 +403,9 @@ class TradingAgentsGraph:
             self.graph = self.workflow.compile(checkpointer=saver)
 
             step = checkpoint_step(
-                self.config["data_cache_dir"], company_name, str(trade_date),
+                self.config["data_cache_dir"],
+                company_name,
+                str(trade_date),
                 self._run_signature(asset_type),
             )
             if step is not None:
@@ -434,8 +456,12 @@ class TradingAgentsGraph:
         # Inject thread_id so same ticker+date+graph-shape resumes; a different
         # date or graph shape starts fresh (#1089).
         if self.config.get("checkpoint_enabled"):
-            tid = thread_id(company_name, str(trade_date), self._run_signature(asset_type))
-            args.setdefault("config", {}).setdefault("configurable", {})["thread_id"] = tid
+            tid = thread_id(
+                company_name, str(trade_date), self._run_signature(asset_type)
+            )
+            args.setdefault("config", {}).setdefault("configurable", {})[
+                "thread_id"
+            ] = tid
 
         if self.debug:
             trace = []
@@ -465,6 +491,9 @@ class TradingAgentsGraph:
         # Log state to disk.
         self._log_state(trade_date, final_state)
 
+        # Save results
+        self._save_state(trade_date, final_state)
+
         # Store decision for deferred reflection on the next same-ticker run.
         self.memory_log.store_decision(
             ticker=company_name,
@@ -475,7 +504,9 @@ class TradingAgentsGraph:
         # Clear checkpoint on successful completion to avoid stale state.
         if self.config.get("checkpoint_enabled"):
             clear_checkpoint(
-                self.config["data_cache_dir"], company_name, str(trade_date),
+                self.config["data_cache_dir"],
+                company_name,
+                str(trade_date),
                 self._run_signature(asset_type),
             )
 
@@ -503,8 +534,12 @@ class TradingAgentsGraph:
             },
             "trader_investment_decision": final_state["trader_investment_plan"],
             "risk_debate_state": {
-                "aggressive_history": final_state["risk_debate_state"]["aggressive_history"],
-                "conservative_history": final_state["risk_debate_state"]["conservative_history"],
+                "aggressive_history": final_state["risk_debate_state"][
+                    "aggressive_history"
+                ],
+                "conservative_history": final_state["risk_debate_state"][
+                    "conservative_history"
+                ],
                 "neutral_history": final_state["risk_debate_state"]["neutral_history"],
                 "history": final_state["risk_debate_state"]["history"],
                 "judge_decision": final_state["risk_debate_state"]["judge_decision"],
@@ -516,7 +551,11 @@ class TradingAgentsGraph:
         # Save to file. Reject ticker values that would escape the
         # results directory when joined as a path component.
         safe_ticker = safe_ticker_component(self.ticker)
-        directory = Path(self.config["results_dir"]) / safe_ticker / "TradingAgentsStrategy_logs"
+        directory = (
+            Path(self.config["results_dir"])
+            / safe_ticker
+            / "TradingAgentsStrategy_logs"
+        )
         directory.mkdir(parents=True, exist_ok=True)
 
         log_path = directory / f"full_states_log_{trade_date}.json"
@@ -526,3 +565,56 @@ class TradingAgentsGraph:
     def process_signal(self, full_signal):
         """Process a signal to extract the core decision."""
         return self.signal_processor.process_signal(full_signal)
+
+    def _save_state(self, trade_date, final_state):
+        def _save_file(ticker, trade_date, filename, content):
+            # Save to file
+            directory = Path(f"results/{ticker}/{trade_date}/")
+            directory.mkdir(parents=True, exist_ok=True)
+
+            file_name = f"{filename}.md"
+            with open(directory / file_name, "w") as f:
+                f.write(content)
+
+        _save_file(
+            ticker=self.ticker,
+            trade_date=trade_date,
+            filename="market_report",
+            content=final_state["market_report"],
+        )
+        _save_file(
+            ticker=self.ticker,
+            trade_date=trade_date,
+            filename="sentiment_report",
+            content=final_state["sentiment_report"],
+        )
+        _save_file(
+            ticker=self.ticker,
+            trade_date=trade_date,
+            filename="news_report",
+            content=final_state["news_report"],
+        )
+        _save_file(
+            ticker=self.ticker,
+            trade_date=trade_date,
+            filename="fundamentals_report",
+            content=final_state["fundamentals_report"],
+        )
+        _save_file(
+            ticker=self.ticker,
+            trade_date=trade_date,
+            filename="trader_investment_decision",
+            content=final_state["trader_investment_plan"],
+        )
+        _save_file(
+            ticker=self.ticker,
+            trade_date=trade_date,
+            filename="investment_plan",
+            content=final_state["investment_plan"],
+        )
+        _save_file(
+            ticker=self.ticker,
+            trade_date=trade_date,
+            filename="final_trade_decision",
+            content=final_state["final_trade_decision"],
+        )

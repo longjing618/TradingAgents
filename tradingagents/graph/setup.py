@@ -4,6 +4,7 @@ from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
+from langgraph.types import RetryPolicy
 
 from tradingagents.agents import (
     create_aggressive_debator,
@@ -76,7 +77,9 @@ class GraphSetup:
             "market": lambda: create_market_analyst(self.quick_thinking_llm),
             "social": lambda: create_sentiment_analyst(self.quick_thinking_llm),
             "news": lambda: create_news_analyst(self.quick_thinking_llm),
-            "fundamentals": lambda: create_fundamentals_analyst(self.quick_thinking_llm),
+            "fundamentals": lambda: create_fundamentals_analyst(
+                self.quick_thinking_llm
+            ),
         }
 
         # Create researcher and manager nodes
@@ -96,7 +99,16 @@ class GraphSetup:
 
         # Add analyst nodes to the graph
         for spec in plan.specs:
-            workflow.add_node(spec.agent_node, analyst_factories[spec.key]())
+            workflow.add_node(
+                spec.agent_node,
+                analyst_factories[spec.key](),
+                retry_policy=RetryPolicy(
+                    max_attempts=4,
+                    initial_interval=1.0,
+                    backoff_factor=2.0,
+                    retry_on=[ValueError, TypeError],
+                ),
+            )
             workflow.add_node(spec.clear_node, create_msg_delete())
             workflow.add_node(spec.tool_node, self.tool_nodes[spec.key])
 
@@ -144,7 +156,11 @@ class GraphSetup:
         workflow.add_edge("Research Manager", "Trader")
         workflow.add_edge("Trader", "Aggressive Analyst")
         # All three risk edges share the complete RISK_ANALYSIS_PATH_MAP (#1088).
-        for risk_node in ("Aggressive Analyst", "Conservative Analyst", "Neutral Analyst"):
+        for risk_node in (
+            "Aggressive Analyst",
+            "Conservative Analyst",
+            "Neutral Analyst",
+        ):
             workflow.add_conditional_edges(
                 risk_node,
                 self.conditional_logic.should_continue_risk_analysis,
